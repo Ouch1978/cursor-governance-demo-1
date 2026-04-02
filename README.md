@@ -157,4 +157,4 @@ Cursor AI 在我要求它完成 ChargeAsync 方法的實作之後，它除了自
 
 - [Cursor AI 官方文件 - Rules](https://cursor.com/docs/context/rules)
 - [Cursor AI 官方文件 - Agent Best Practices](https://cursor.com/blog/agent-best-practices)
-- [系列文章：AI Agent 加入後，我看到的隱憂與治理破口](https://ouch1978.github.io/docs/ai/vibe-coding/cursor-ai-governance-for-team/ai-agent-concerns-governance-gaps-cursor)
+- [系列文章：AI Agent 加入後，我看到的隱憂與治理破口](http://localhost:8080/docs/ai/vibe-coding/cursor-ai-governance-for-team)
