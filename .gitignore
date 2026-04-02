@@ -1,0 +1,13 @@
+# dotnet
+bin/
+obj/
+*.user
+.vs/
+appsettings.local.json
+appsettings.Development.json
+secrets.json
+.env
+.env.local
+
+# Cursor 個人設定
+.cursor/mcp.json

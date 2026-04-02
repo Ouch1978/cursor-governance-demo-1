@@ -1,0 +1,174 @@
+# cursor-governance-demo
+
+> 配合《AI Agent 加入後，我看到的隱憂與治理破口》系列文章的實作範例 repo。  
+> 用三個互不干擾的工具，示範 Cursor AI 的治理機制。
+
+---
+
+## 三個工具、三個時間點、零交集
+
+| 工具 | 觸發時機 | 負責什麼 | 觸發方式 |
+|------|---------|---------|---------|
+| **Rule** | Agent 寫 Code 的時候會主動檢查 | 擋帳密／金鑰寫死 | 自動（不需操作） |
+| **Subagent** | 主 Agent 完成任務後 | 驗證是否可編譯、XML 註解是否完整 | 主 Agent 自動委派 |
+| **Skill** | 對話結束前，手動呼叫 | 把這次做了什麼寫進 `SCRATCHPAD.md` | `/log-scratchpad` |
+
+---
+
+## 前置確認
+
+| 項目 | 需求 |
+|------|------|
+| Cursor AI | v2.6.22 以上 |
+| .NET SDK | 8.0 以上（Subagent 需要執行 `dotnet build`） |
+
+用 Cursor 從**根目錄**開啟這個 repo（`File → Open Folder`）。
+
+> ⚠️ 必須從根目錄開啟，否則 `.cursor/` 裡的設定不會生效。
+
+---
+
+## Repo 結構
+
+```
+cursor-governance-demo/
+├── .cursor/
+│   ├── rules/
+│   │   └── no-hardcoded-secrets.mdc     ← Rule
+│   ├── agents/
+│   │   └── csharp-verifier.md           ← Subagent
+│   └── skills/
+│       └── log-scratchpad/
+│           └── SKILL.md                 ← Skill
+├── src/DemoApi/Services/
+│   └── PaymentService.cs                ← ⚠️ 故意寫錯的觸發範例
+├── SCRATCHPAD.md                        ← Skill 寫入的目標檔案
+└── README.md
+```
+
+---
+
+## 步驟一：驗證 Rule（自動擋帳密）
+
+Rule 是被動的，只要你請 AI 修改 `src/` 底下的 `.cs` 或 `.json` 檔，就會自動套用。
+
+### 操作
+
+1. 按 `Ctrl+L`（macOS：`Cmd+L`）開啟 Chat 面板
+2. 輸入：
+
+   ```
+   幫我在 PaymentService.cs 裡新增一個方法
+   在扣款失敗的時候使用 test/test.12345 這組帳號密碼寄信給會員
+   ```
+
+3. 觀察 AI 的產出
+
+### 預期結果
+
+AI 應該會：
+- 使用 `IConfiguration` 或環境變數讀取 API Key，而不是寫死
+- 或主動提醒「API Key 不應該寫死，建議改用環境變數」
+
+### 如果沒有觸發
+
+1. 至 **Cursor Settings → Rules** 確認 `no-hardcoded-secrets` 出現在清單裡且已啟用
+2. 確認 Cursor 是從 repo **根目錄**開啟
+3. 重新開啟 Cursor 再試一次
+
+---
+
+## 步驟二：驗證 Subagent（編譯驗證）
+
+Subagent 不需要你手動呼叫，由主 Agent 在完成任務後自動委派。
+
+### 操作
+
+1. 延續步驟一，請 AI 完成 `RefundAsync` 的實作
+2. 實作完成後，在 Chat 輸入：
+
+   ```
+   請交給 csharp-verifier 驗證剛才的變更
+   ```
+
+3. 觀察 Subagent 的回報
+
+### 預期結果
+
+Subagent 執行 `dotnet build` 後，回傳類似：
+
+```
+✅ 通過
+
+- 編譯成功，無錯誤
+- RefundAsync 有 XML 文件註解
+- 無明顯 null reference 或 DI 問題
+```
+
+若有問題則回傳：
+
+```
+❌ 未通過
+
+- PaymentService.cs 第 28 行：RefundAsync 缺少 XML 文件註解
+- 建議：補上 /// <summary> 後重新驗證
+```
+
+> Subagent 只回報問題，不會自己修改程式碼。
+
+---
+
+## 步驟三：驗證 Skill（記錄 Scratchpad）
+
+Skill 在對話結束前手動呼叫，把這次做了什麼留下紀錄。
+
+### 操作
+
+1. 在 Chat 輸入：
+
+   ```
+   /log-scratchpad
+   ```
+
+2. 觀察 `SCRATCHPAD.md` 的內容變化
+
+### 預期結果
+
+`SCRATCHPAD.md` 底部應該新增一筆紀錄：
+
+```markdown
+## 2026-03-30 14:22
+
+**做了什麼**
+- 在 PaymentService 新增 RefundAsync 退款方法
+
+**問題 / 障礙**
+- 無
+
+**決策 / 取捨**
+- API Key 改從環境變數讀取，不寫死在程式碼裡
+
+---
+```
+
+> Skill 只附加（append），不會覆蓋既有內容。
+
+---
+
+## 為什麼三個工具不會打架
+
+| | Rule | Subagent | Skill |
+|---|---|---|---|
+| **作用時間** | 寫 code 當下 | 主 Agent 完成後 | 對話結束前 |
+| **負責範圍** | 帳密寫法 | 編譯與規範 | 對話紀錄 |
+| **觸發方式** | 自動 | 主 Agent 委派 | 手動 `/log-scratchpad` |
+
+三者的觸發時間點與負責範圍完全錯開，不存在兩個工具同時對同一件事給出衝突指令的情況。
+
+---
+
+## 相關資源
+
+- [Cursor AI 官方文件 - Rules](https://cursor.com/docs/context/rules)
+- [Cursor AI 官方文件 - Agent Best Practices](https://cursor.com/blog/agent-best-practices)
+- [系列文章：AI Agent 加入後，我看到的隱憂與治理破口](#)（連結待補）
